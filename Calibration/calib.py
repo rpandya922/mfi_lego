@@ -76,7 +76,7 @@ for key in ARUCO_DICT:
 		break
 
 rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(corners, aruco_marker_side_length, cam_mtx, dist_coeff)
-
+print(rvecs, tvecs, obj_points)
 rot = R.from_rotvec(np.reshape(rvecs, (3,)))
 translation = np.reshape(tvecs, (3,))
 rot = rot.as_matrix()

@@ -39,51 +39,58 @@ goal_type = "regular"; goal_type_last = "none";
 ovr = 0.1;
 
 % move home
-home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
-pause_time = 4;
-move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+% home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
+home_pos = [2.888; 67.695; -44.579+67.695; 3.990; -47.541; -4.672];
+% home_pos = [0;0;0;0;0;0];
+pause_time = 2.2;
+move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 %% picking up pieces
 sequence_number = sequence_number + 1;
-pause_time = 2.5;
+pause_time = 2.05;
 goal = [-6.986; 78.521; -32.095+78.521; 3.777; -59.466; 5.988];
 move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 % grasp piece
 sequence_number = sequence_number + 1;
-pause_time = 4.2;
+pause_time = 2.2;
 goal = [-7.083; 80.970; -33.265+80.970; 3.827; -58.292; 5.991];
-move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 % rotate piece to remove
 sequence_number = sequence_number + 1;
-pause_time = 4.2;
+pause_time = 2.05;
 goal = [-7.378; 75.194; -39.412+75.194; 2.663; -42.134; 6.764];
-move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 %% move to home after picking
 sequence_number = sequence_number + 1;
 home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
-pause_time = 4;
-move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+pause_time = 2.05;
+move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 %% dropping off pieces
 % hover over piece
 sequence_number = sequence_number + 1;
-pause_time = 2.5;
+pause_time = 2.05;
 goal = [5.320; 59.500; -57.462+59.500; 0.193; -33.813; 83.595];
 move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 % grasp piece
 sequence_number = sequence_number + 1;
-pause_time = 4.2;
+pause_time = 2.05;
 goal = [5.317; 61.464; -58.792+61.464; 0.200; -32.483; 83.589];
-move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 % rotate piece to remove
 sequence_number = sequence_number + 1;
-pause_time = 4.2;
+pause_time = 2.05;
 goal = [9.331; 61.808; -57.902+61.808; 24.711; -38.851; 59.651];
-move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+move_to_goal(goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+
+% move back home after dropping piece
+sequence_number = sequence_number + 1;
+pause_time = 2.05;
+move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
 
 %%
 % comm.endSTMO;

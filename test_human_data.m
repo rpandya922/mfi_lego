@@ -13,13 +13,14 @@ sequence_number = sequence_number + 1;
 bootup = false;
 STATE = "init_s"; STATE_last = "none";
 goal_type = "regular"; goal_type_last = "none";
-
 ovr = 0.1;
 
+ROB_GOAL_MODE = 'proactive'; % 'naive', 'responsive'
+
 % move home
-home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
-pause_time = 4;
-move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
+% home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
+% pause_time = 4;
+% move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, true);
 
 pose_sent = false;
 pause_time = 2.2;
@@ -30,9 +31,15 @@ human_pos_buf = zeros(3, 10);
 load('goal_locs.mat');
 pieces = ["red_1x2" "red_2x6" "red_1x8" "orange_1x2"];
 human_goals = [];
-for i=1:pieces.length
-    human_goals = [human_goals goal_locs.(pieces(i)).pick.xyz];
+for i=1:length(pieces)
+    human_goals = [human_goals goal_locs.(pieces(i)).pick.xyz_h];
 end
+
+h_pieces = ["green_1x4" "blue_1x4" "pink_1x4" "red_1x8" "red_2x6"...
+    "yellow_1x6_b" "yellow_1x6_t"];
+h_pieces_active = logical([1 0 0 1 1 0 1]);
+r_pieces = ["red_1x2" "orange_1x2" "red_2x6" "red_1x8"];
+r_pieces_active = logical([1 1 1 1]);
 
 while true
     while true
@@ -74,28 +81,46 @@ while true
         end
     end
     wrist_pos = HuCap{4}.p(:,2);
-%     disp(wrist_pos);
+    disp("human");
+    disp(wrist_pos);
     % save the human's current wrist position to buffer
     human_pos_buf = circshift(human_pos_buf, [0, -1]);
     human_pos_buf(:,end) = wrist_pos;
 
     [jpos, jvel, SSA_status, controller_status] = comm.getRobData;
     robot_pos = FK(robot, jpos);
+    disp("robot");
     disp(robot_pos(1:3,4));
     
     % send pose command to the robot (only once), otherwise continue
     % waiting until pause_time has elapsed
     
+    % compute the human's intention
+    [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos_buf);
+%     disp(h_goal);
+    disp("human goal: " + pieces(h_goal_idx));
     
+    % compute the robot's best response goal
+    r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
+        ROB_GOAL_MODE, human_pos_buf);
+    disp("robot goal: " + r_goal_name);
+    
+    % if the human is close enough to any particular goal and not moving,
+    % say that is their goal
+%     t_elapsed = toc(curr_time);
+%     disp(t_elapsed);
+%     if t_elapsed > 8
+%         break
+%     end
 end
 %%
-comm.endSTMO;
-pause(0.5);
-%%
-stop(tg);
-if MODE == 'CamerINTR'
-    stop(depthVid);
-end
+% comm.endSTMO;
+% pause(0.5);
+% %%
+% stop(tg);
+% if MODE == 'CamerINTR'
+%     stop(depthVid);
+% end
 
 function move_to_goal(goal, enb_ssa, comm, replan_cnt, traj_hz, resample_hz, ovr, pause_time, slow)
 [jpos, ~, ~, ~] = comm.getRobData;
