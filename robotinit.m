@@ -1,6 +1,6 @@
 ROBOT = 'LRMate200iD7L';
 MODE = 'CamerINTR';%'CamerINTR'; %'CamerINTR'; % HumanINTR for mouse control; HuRobINTR: perception using camera.W
-enbSSA = 1; % 1: enable SSA. 0: disable SSA.
+enbSSA = 0; % 1: enable SSA. 0: disable SSA.
 
 load_dependencies;
 robot = robot_property(ROBOT);

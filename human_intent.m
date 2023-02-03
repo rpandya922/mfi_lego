@@ -1,18 +1,4 @@
 function [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos)
-% load('goal_locs.mat');
-% pieces = ["red_1x2" "red_2x6" "red_1x8" "orange_1x2"];
-% human_goals = [];
-% for i=1:length(pieces)
-%     human_goals = [human_goals goal_locs.(pieces(i)).pick.xyz];
-% end
-% 
-% % dummy numbers
-% human_pos = [0.4 0.3;
-%              0.0 0.05;
-%              1.5 1.4];
-% 
-% [h_goal, goal_probs] = predict(human_goals, human_pos);
-
 goals_shape = size(human_goals);
 n_goals = goals_shape(2);
 

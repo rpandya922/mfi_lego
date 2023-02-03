@@ -39,8 +39,9 @@ goal_type = "regular"; goal_type_last = "none";
 ovr = 0.1;
 
 % move home
-% home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
-home_pos = [2.888; 67.695; -44.579+67.695; 3.990; -47.541; -4.672];
+home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
+% home_pos = [-12.745; 68.813; -44.296+68.813; 1.512; -46.689; 10.292];
+% home_pos = [2.888; 67.695; -44.579+67.695; 3.990; -47.541; -4.672];
 % home_pos = [0;0;0;0;0;0];
 pause_time = 2.2;
 move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);

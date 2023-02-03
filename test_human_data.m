@@ -41,6 +41,12 @@ h_pieces_active = logical([1 0 0 1 1 0 1]);
 r_pieces = ["red_1x2" "orange_1x2" "red_2x6" "red_1x8"];
 r_pieces_active = logical([1 1 1 1]);
 
+STATE = 'SENSE'; % 'MOVE'
+prev_h_pred = -1;
+prev_prev_h_pred = -1;
+rob_cmd_sent = false;
+
+loop_counter = 0;
 while true
     while true
         flushdata(depthVid);
@@ -80,39 +86,107 @@ while true
             break;
         end
     end
-    wrist_pos = HuCap{4}.p(:,2);
-    disp("human");
-    disp(wrist_pos);
-    % save the human's current wrist position to buffer
-    human_pos_buf = circshift(human_pos_buf, [0, -1]);
-    human_pos_buf(:,end) = wrist_pos;
+    switch STATE
+        case 'SENSE'
+            wrist_pos = HuCap{4}.p(:,2);
+%             disp("human");
+%             disp(wrist_pos);
+            % save the human's current wrist position to buffer
+            human_pos_buf = circshift(human_pos_buf, [0, -1]);
+            human_pos_buf(:,end) = wrist_pos;
 
-    [jpos, jvel, SSA_status, controller_status] = comm.getRobData;
-    robot_pos = FK(robot, jpos);
-    disp("robot");
-    disp(robot_pos(1:3,4));
-    
-    % send pose command to the robot (only once), otherwise continue
-    % waiting until pause_time has elapsed
-    
-    % compute the human's intention
-    [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos_buf);
-%     disp(h_goal);
-    disp("human goal: " + pieces(h_goal_idx));
-    
-    % compute the robot's best response goal
-    r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
-        ROB_GOAL_MODE, human_pos_buf);
-    disp("robot goal: " + r_goal_name);
-    
-    % if the human is close enough to any particular goal and not moving,
+            [jpos, jvel, SSA_status, controller_status] = comm.getRobData;
+            robot_pos = FK(robot, deg2rad(jpos));
+%             disp("robot");
+%             disp(robot_pos(1:3,4));
+
+            % compute the human's intention
+            [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos_buf);
+%             disp("human goal: " + pieces(h_goal_idx));
+
+            % compute the robot's best response goal
+            r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
+                ROB_GOAL_MODE, human_pos_buf);
+%             disp("robot goal: " + r_goal_name);
+            
+            % switch state to 'ACT' if they've moved and we have the same
+            % prediction twice in a row
+            human_vel = human_pos_buf(:,end) - human_pos_buf(:,end-1);
+            disp(norm(human_vel) + " " + pieces(h_goal_idx));
+            % TODO: also check that the person has been moving for this
+            % time
+            is_consistent = (prev_prev_h_pred == prev_h_pred) && ...
+                (prev_h_pred == h_goal_idx);
+            if (norm(human_vel) > 0.03) && is_consistent &&...
+                    loop_counter > 20
+               STATE = 'ACT'; 
+            end
+            prev_prev_h_pred = prev_h_pred;
+            prev_h_pred = h_goal_idx;
+            
+        case 'ACT'
+            % TODO; send pose command to the robot (only once), otherwise continue
+            % waiting until pause_time has elapsed
+            % move the robot to its selected goal
+            if ~rob_cmd_sent
+                disp('ACT');
+                r_goal = goal_locs.(r_goal_name).pick.up;
+                sequence_number = sequence_number + 1;
+                pause_time = 2.05;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.(r_goal_name).pick.down;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.(r_goal_name).pick.rotate;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.neutral;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.(r_goal_name).drop.up;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.(r_goal_name).drop.down;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.(r_goal_name).drop.detach;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                r_goal = goal_locs.neutral;
+                sequence_number = sequence_number + 1;
+                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+                
+                t0 = tic;
+                rob_cmd_sent = true;
+            else
+                disp('cmd sent');
+                % wait until pause_time has elapsed
+%                 t1 = toc(t0);
+%                 if t1 >= pause_time
+%                     disp('finished moving');
+%                     break
+%                 end
+            end
+    end
+    % TODO: if the human is close enough to any particular goal and not moving,
     % say that is their goal
+    
 %     t_elapsed = toc(curr_time);
 %     disp(t_elapsed);
 %     if t_elapsed > 8
 %         break
 %     end
+%     disp(loop_counter);
+    loop_counter = loop_counter + 1;
 end
+disp('finished cleanly');
 %%
 % comm.endSTMO;
 % pause(0.5);
@@ -135,5 +209,5 @@ else
                 goal'];
 end
 comm.drvJntTraj(ref_traj, traj_hz, resample_hz, ovr, replan_cnt);
-% pause(pause_time);
+pause(pause_time);
 end
