@@ -50,7 +50,7 @@ for i=1:n_goals
     r_drop_goals(:,i) = goal_locs.(r_piece_name).drop.xyz;
 end
 
-[h_goal, h_goal_idx, goal_probs] = human_intent(h_pick_goals, human_pos);
+[h_goal, h_goal_idx, goal_probs] = human_intent(h_pick_goals, human_pos, h_pieces_active);
 
 switch(ROB_GOAL_MODE)
     case 'proactive'

@@ -1,4 +1,4 @@
-function [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos)
+function [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos, h_pieces_active)
 goals_shape = size(human_goals);
 n_goals = goals_shape(2);
 
@@ -20,9 +20,13 @@ for goal_i=1:n_goals
     % try computing dist from just xy position
     dir = directions(:,goal_i);
     h_pos = vel_unit;
-    dist = norm(dir(1:2) - h_pos(1:2))^2;
+    dist = norm(dir(1:2) - h_pos(1:2));
     dists = [dists dist];
 end
+
+% set the distance to inactive goals to be +inf
+dists(~h_pieces_active) = inf;
+
 dists_inv = zeros(length(dists), 1);
 for i=1:length(dists)
     dists_inv(i) = 1 / dists(i);
