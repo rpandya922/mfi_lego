@@ -53,7 +53,10 @@ rob_cmd_sent = false;
 
 % for robot movements in loop
 pause_time = 2.05;
-r_goal_name = "red_2x6";
+r_goal_order = ["red_2x6" "orange_1x2" "red_1x2" "red_1x8"];
+r_goal_idx = 1;
+% r_goal_name = "red_2x6";
+r_goal_name = r_goal_order(r_goal_idx);
 % get the goal positions for the robot all in an array
 robot_goals = zeros(6, 7);
 robot_goals(:,1) = goal_locs.(r_goal_name).pick.up;
@@ -144,6 +147,21 @@ while true
                 acting_idx = acting_idx + 1;
                 if acting_idx > 7
                     acting_idx = 1;
+                    % assign the next goal to the robot
+                    r_goal_idx = r_goal_idx + 1;
+                    if r_goal_idx > length(r_goal_order) % finished picking all goals
+                        break;
+                    end
+                    r_goal_name = r_goal_order(r_goal_idx);
+                    % get the goal positions for the robot all in an array
+                    robot_goals = zeros(6, 7);
+                    robot_goals(:,1) = goal_locs.(r_goal_name).pick.up;
+                    robot_goals(:,2) = goal_locs.(r_goal_name).pick.down;
+                    robot_goals(:,3) = goal_locs.(r_goal_name).pick.rotate;
+                    robot_goals(:,4) = goal_locs.(r_goal_name).pick.up;
+                    robot_goals(:,5) = goal_locs.(r_goal_name).drop.up;
+                    robot_goals(:,6) = goal_locs.(r_goal_name).drop.down;
+                    robot_goals(:,7) = goal_locs.(r_goal_name).drop.detach;
                 end
                 disp('cmd sent');
             else
@@ -164,6 +182,12 @@ while true
     r_joint_data = [r_joint_data jpos];
     loop_counter = loop_counter + 1;
 end
+% move robot back home
+sequence_number = sequence_number + 1;
+home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
+pause_time = 2.05;
+move_to_goal(home_pos, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+pause(pause_time);
 disp('finished cleanly');
 
 

@@ -40,7 +40,7 @@ switch MODE
         set(depthVid,'TriggerRepeat',Inf);%TriggerRepeat
         set(depthVid,'FramesPerTrigger',framesPerTrig);%FramesPerTrigger
         set(depthVid,'FrameGrabInterval',1);%FrameGrabInterval
-        set(depthVid,'Timeout',70);
+        set(depthVid,'Timeout',50);
         start(depthVid)
         Trans = load("Calibration/camera_transformation.txt");
         fighandle = initialize_figure_interact(2, [-2, 3], [-2, 2], [0, 3], [1, -2, 1], 1, 0);

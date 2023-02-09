@@ -108,7 +108,7 @@ while true
             [~, h_goal_idx] = min(dists);
             % set this to be the human's "current" goal 
             h_goal_curr = h_pieces(h_goal_idx);
-            disp("human near goal " + h_goal_curr);
+%             disp("human near goal " + h_goal_curr);
             % compute which goals should become active
 %             switch h_goal_curr
 %                 case "green_1x4"
@@ -149,7 +149,7 @@ while true
 
             % compute the human's intention
             [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos_buf, h_pieces_active);
-%             disp("human goal: " + h_pieces(h_goal_idx));
+            disp("human goal: " + h_pieces(h_goal_idx));
 
             % compute the robot's best response goal
             r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
@@ -169,7 +169,7 @@ while true
             end
             if (norm(human_vel) > 0.03) && is_consistent &&...
                     loop_counter > 20
-%                STATE = 'ACT'; 
+               STATE = 'ACT'; 
                 1;
             end
             prev_prev_h_pred = prev_h_pred;
