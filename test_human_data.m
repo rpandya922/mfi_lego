@@ -15,7 +15,8 @@ STATE = "init_s"; STATE_last = "none";
 goal_type = "regular"; goal_type_last = "none";
 ovr = 0.1;
 
-ROB_GOAL_MODE = 'proactive'; % 'naive', 'responsive'
+% ROB_GOAL_MODE = 'proactive'; % 'naive', 'responsive'
+ROB_GOAL_MODE = 'naive';
 
 % move home
 % home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
@@ -29,7 +30,7 @@ curr_time = tic;
 human_pos_buf = zeros(3, 10);
 
 load('goal_locs.mat');
-pieces = ["red_1x2" "red_2x6" "red_1x8" "orange_1x2"];
+% pieces = ["red_1x2" "red_2x6" "red_1x8" "orange_1x2"];
 
 h_pieces = ["green_1x4" "blue_1x4" "pink_1x4" "red_1x8" "red_2x6"...
     "yellow_1x6_b" "yellow_1x6_t"];
@@ -51,7 +52,18 @@ prev_h_pred = -1;
 prev_prev_h_pred = -1;
 rob_cmd_sent = false;
 
+% for robot movements in loop
+pause_time = 2.05;
+acting_idx = 1;
+robot_done = false;
+
+% for data saving
+h_xyz_wrist_data = [];
+r_xyz_ee_data = []; % end effector xyz positions
+r_joint_data = []; % joint positions
+times = [];
 loop_counter = 0;
+init_time = tic;
 while true
     while true
         flushdata(depthVid);
@@ -92,84 +104,108 @@ while true
         end
     end
     
+    wrist_pos = HuCap{4}.p(:,2);
+    % save the human's current wrist position to buffer
+    human_pos_buf = circshift(human_pos_buf, [0, -1]);
+    human_pos_buf(:,end) = wrist_pos;
+    
     % check if human has been close to an active goal for a while
     h_vel = human_pos_buf(:,end) - human_pos_buf(:,end-1);
+    h_vel_long = human_pos_buf(:,end) - human_pos_buf(:,end-3);
     % rate-limit logic (make sure human moves before checking again)
-    if norm(h_vel) >= 0.03
+    if norm(h_vel_long) >= 0.03
         h_goal_picked = false;
     end
-%     if norm(h_vel) < 0.03 && ~h_goal_picked % human is not currently moving
-    if ~h_goal_picked % temporary
+    if norm(h_vel_long) < 0.03 && ~h_goal_picked % human is not currently moving
         % check distances to goals
         dists = vecnorm(human_goals - human_pos_buf(:,end), 2, 1);
         dists(~h_pieces_active) = inf;
-%         if min(dists) < 0.02 % human is by this goal
-        if true % temporary
-            [~, h_goal_idx] = min(dists);
+        % TODO: make this check if human has been near goal for > 0.5 secs
+        if min(dists) < 0.05 % human is by this goal
+%         if true % temporary
+            [~, h_goal_idx_curr] = min(dists);
             % set this to be the human's "current" goal 
-            h_goal_curr = h_pieces(h_goal_idx);
-%             disp("human near goal " + h_goal_curr);
-            % compute which goals should become active
-%             switch h_goal_curr
-%                 case "green_1x4"
-%                     h_pieces_active(1) = 0; % green inactive
-%                     h_pieces_active(3) = 1; % pink active
-%                 case "blue_1x4"
-%                     h_pieces_active(2) = 0; % blue inactive
-%                 case "pink_1x4"
-%                     h_pieces_active(3) = 0; % pink inactive
-%                     h_pieces_active(2) = 1; % blue active
-%                 case "red_1x8"
-%                     h_pieces_active(4) = 0; % red 1x8 inactive
-%                 case "red_2x6"
-%                     h_pieces_active(5) = 0; % red 2x6 inactive
-%                 case "yellow_1x6_b"
-%                     h_pieces_active(6) = 0; % yellow 1x6 bottom inactive
-%                 case "yellow_1x6_t"
-%                     h_pieces_active(7) = 0; % yellow 1x6 top inactive
-%                     h_pieces_active(6) = 1; % yellow 1x6 bottom active
-%             end
-%             h_goal_picked = true;
+            h_goal_curr = h_pieces(h_goal_idx_curr);
+            disp("human picked goal " + h_goal_curr);
+            % compute which goals should become (in)active
+            switch h_goal_curr
+                case "green_1x4"
+                    h_pieces_active(1) = 0; % green inactive
+                    h_pieces_active(3) = 1; % pink active
+                case "blue_1x4"
+                    h_pieces_active(2) = 0; % blue inactive
+                case "pink_1x4"
+                    h_pieces_active(3) = 0; % pink inactive
+                    h_pieces_active(2) = 1; % blue active
+                case "red_1x8"
+                    h_pieces_active(4) = 0; % red 1x8 inactive
+                    r_pieces_active(4) = 0;
+                case "red_2x6"
+                    h_pieces_active(5) = 0; % red 2x6 inactive
+                    r_pieces_active(3) = 0;
+                case "yellow_1x6_b"
+                    h_pieces_active(6) = 0; % yellow 1x6 bottom inactive
+                case "yellow_1x6_t"
+                    h_pieces_active(7) = 0; % yellow 1x6 top inactive
+                    h_pieces_active(6) = 1; % yellow 1x6 bottom active
+            end
+            h_goal_picked = true;
         end
     end
+%     disp(h_pieces_active);
     
     switch STATE
         case 'SENSE'
-            wrist_pos = HuCap{4}.p(:,2);
-%             disp("human");
-%             disp(wrist_pos);
-            % save the human's current wrist position to buffer
-            human_pos_buf = circshift(human_pos_buf, [0, -1]);
-            human_pos_buf(:,end) = wrist_pos;
-
             [jpos, jvel, SSA_status, controller_status] = comm.getRobData;
             robot_pos = FK(robot, deg2rad(jpos));
-%             disp("robot");
-%             disp(robot_pos(1:3,4));
 
             % compute the human's intention
             [h_goal, h_goal_idx, goal_probs] = human_intent(human_goals, human_pos_buf, h_pieces_active);
-            disp("human goal: " + h_pieces(h_goal_idx));
 
             % compute the robot's best response goal
-            r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
-                ROB_GOAL_MODE, human_pos_buf);
-%             disp("robot goal: " + r_goal_name);
-            
-            % switch state to 'ACT' if they've moved and we have the same
-            % prediction twice in a row
-            human_vel = human_pos_buf(:,end) - human_pos_buf(:,end-1);
-%             disp(norm(human_vel) + " " + h_pieces(h_goal_idx));
-            % TODO: also check that the person has been moving for this
-            % time
-            is_consistent = (prev_prev_h_pred == prev_h_pred) && ...
-                (prev_h_pred == h_goal_idx);
-            if loop_counter == 20
-                disp('waiting for human action');
+            if h_goal_picked
+                h_goal = h_goal_curr;
+                h_goal_idx = h_goal_idx_curr;
+                r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
+                    ROB_GOAL_MODE, h_goal_idx, true);
+                switch_state = true;
+            else
+                disp("human goal: " + h_pieces(h_goal_idx));
+                r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
+                    ROB_GOAL_MODE, human_pos_buf, false);
+    %             disp("robot goal: " + r_goal_name);
+                % switch state to 'ACT' if they've moved and we have the same
+                % prediction twice in a row
+                human_vel = human_pos_buf(:,end) - human_pos_buf(:,end-1);
+    %             disp(norm(human_vel) + " " + h_pieces(h_goal_idx));
+                % TODO: also check that the person has been moving for this
+                % time
+                is_consistent = (prev_prev_h_pred == prev_h_pred) && ...
+                    (prev_h_pred == h_goal_idx);
+                if loop_counter == 20
+                    disp('waiting for human action');
+                end
+                if ROB_GOAL_MODE == "naive"
+                   switch_state = (loop_counter > 20);
+                else
+                    switch_state = (norm(human_vel) > 0.03) && is_consistent &&...
+                    loop_counter > 20;
+                end
             end
-            if (norm(human_vel) > 0.03) && is_consistent &&...
-                    loop_counter > 20
-               STATE = 'ACT'; 
+            
+            if switch_state
+                STATE = 'ACT';
+                disp("robot goal: " + r_goal_name);
+                % get the goal positions for the robot all in an array
+                robot_goals = zeros(6, 8);
+                robot_goals(:,1) = goal_locs.(r_goal_name).pick.up;
+                robot_goals(:,2) = goal_locs.(r_goal_name).pick.down;
+                robot_goals(:,3) = goal_locs.(r_goal_name).pick.rotate;
+                robot_goals(:,4) = goal_locs.(r_goal_name).pick.up;
+                robot_goals(:,5) = goal_locs.(r_goal_name).drop.up;
+                robot_goals(:,6) = goal_locs.(r_goal_name).drop.down;
+                robot_goals(:,7) = goal_locs.(r_goal_name).drop.detach;
+                robot_goals(:,8) = goal_locs.neutral;
                 1;
             end
             prev_prev_h_pred = prev_h_pred;
@@ -180,66 +216,59 @@ while true
             % waiting until pause_time has elapsed
             % move the robot to its selected goal
             if ~rob_cmd_sent
-                disp('ACT');
-                % set this goal for the robot to be inactive
-                g_idx = r_piece_to_idx(r_goal_name);
-                r_pieces_active(g_idx) = false;
-                
-                r_goal = goal_locs.(r_goal_name).pick.up;
-                sequence_number = sequence_number + 1;
-                pause_time = 2.05;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.(r_goal_name).pick.down;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.(r_goal_name).pick.rotate;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.neutral;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.(r_goal_name).drop.up;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.(r_goal_name).drop.down;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.(r_goal_name).drop.detach;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                r_goal = goal_locs.neutral;
-                sequence_number = sequence_number + 1;
-                move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
-                
-                t0 = tic;
-                rob_cmd_sent = true;
+                if ~robot_done
+                    disp('ACT');
+                    % set this goal for the robot to be inactive
+                    g_idx = r_piece_to_idx(r_goal_name);
+                    r_pieces_active(g_idx) = false;
+                    if r_goal_name == "red_1x8"
+                        h_pieces_active(4) = 0;
+                    elseif r_goal_name == "red_2x6"
+                        h_pieces_active(5) = 0;
+                    end
+
+                    % get the current goal to be sent
+                    r_goal = robot_goals(:,acting_idx);
+                    sequence_number = sequence_number + 1;
+                    move_to_goal(r_goal, enbSSA, comm, sequence_number, traj_hz, resample_hz, ovr, pause_time, false);
+
+                    t0 = tic;
+                    rob_cmd_sent = true;
+                    acting_idx = acting_idx + 1;
+                    if acting_idx > 8
+                        % assign the next goal to the robot
+                        acting_idx = 1;
+                        if all(~r_pieces_active)
+                            % robot is done picking up its last piece
+                            robot_done = true;
+                        end
+                        STATE = 'SENSE';
+                    end
+                    disp('cmd sent');
+                else
+                    disp("robot done");
+                end
             else
-                disp('cmd sent');
-                % wait until pause_time has elapsed
-%                 t1 = toc(t0);
-%                 if t1 >= pause_time
-%                     disp('finished moving');
-%                     break
-%                 end
+                t1 = toc(t0);
+                if t1 >= pause_time
+                    rob_cmd_sent = false;
+                end
             end
     end
-    % TODO: if the human is close enough to any particular goal and not moving,
-    % say that is their goal
-    
-%     t_elapsed = toc(curr_time);
-%     disp(t_elapsed);
-%     if t_elapsed > 8
-%         break
-%     end
-%     disp(loop_counter);
+
     loop_counter = loop_counter + 1;
+    % saving data
+    times = [times toc(init_time)];
+    h_xyz_wrist_data= [h_xyz_wrist_data wrist_pos];
+    [jpos, ~, ~, ~] = comm.getRobData;
+    r_xyz = FK(robot, deg2rad(jpos));
+    r_xyz_ee_data = [r_xyz_ee_data r_xyz(1:3,4)];
+    r_joint_data = [r_joint_data jpos];
+    loop_counter = loop_counter + 1;
+    
+    if all(~r_pieces_active) && all(~h_pieces_active) && robot_done
+        break; % finished moving all pieces
+    end
 end
 disp('finished cleanly');
 %%
@@ -264,5 +293,5 @@ else
                 goal'];
 end
 comm.drvJntTraj(ref_traj, traj_hz, resample_hz, ovr, replan_cnt);
-pause(pause_time);
+% pause(pause_time);
 end

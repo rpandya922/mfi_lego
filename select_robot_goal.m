@@ -1,5 +1,5 @@
 function r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
-    ROB_GOAL_MODE, human_pos)
+    ROB_GOAL_MODE, human_pos, deterministic)
 % list of all pieces for human
 h_pieces = ["green_1x4" "blue_1x4" "pink_1x4" "red_1x8" "red_2x6"...
     "yellow_1x6_b" "yellow_1x6_t"];
@@ -50,7 +50,11 @@ for i=1:n_goals
     r_drop_goals(:,i) = goal_locs.(r_piece_name).drop.xyz;
 end
 
-[h_goal, h_goal_idx, goal_probs] = human_intent(h_pick_goals, human_pos, h_pieces_active);
+if ~deterministic
+    [h_goal, h_goal_idx, goal_probs] = human_intent(h_pick_goals, human_pos, h_pieces_active);
+else
+    h_goal_idx = human_pos;
+end
 
 switch(ROB_GOAL_MODE)
     case 'proactive'
@@ -64,8 +68,8 @@ switch(ROB_GOAL_MODE)
         % get the scores relating to this goal
         h_goal_scores = goal_scores(h_goal_idx,:)';
         % use set any goal with h_pieces_active(i) == 0 to have negative
-        % score
-        h_goal_scores(~h_pieces_active) = -inf;
+        % score (not necessary when robot is picking)
+%         h_goal_scores(~h_pieces_active) = -inf;
         
         % additionally filter based on which goals are active for robot
         h_goal_scores(~h_pieces_active_from_r) = -inf;
@@ -77,9 +81,14 @@ switch(ROB_GOAL_MODE)
         % get the name of the corresponding robot goal
         r_goal_name = h_to_r_piece(h_pieces(robot_goal_idx));
         
+        if (r_pieces_active(2) == 1) && (sum(r_pieces_active) == 1)
+            1;
+        end
+        
     case 'naive'
         % picks the goal that's closest to the robot (by xyz position)
-        disp("NOT IMPLEMENTED");
+        [~, r_goal_idx] = max(r_pieces_active);
+        r_goal_name = r_pieces(r_goal_idx);
     case 'responsive'
         % picks the closest goal that the human isn't going towards
         disp("NOT IMPLEMENTED");
@@ -99,7 +108,7 @@ for i=1:n_goals
         % human picks goal i, robot picks goal j
         pickup_dist = norm(h_pick(:,i) - r_pick(:,j));
         dropoff_dist = norm(h_drop(:,i) - r_drop(:,j));
-        score_mat(i,j) = -1/pickup_dist - 1/dropoff_dist;
+        score_mat(i,j) = -1/pickup_dist - 1/(2*dropoff_dist);
     end
 end
 
