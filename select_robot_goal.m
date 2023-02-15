@@ -86,9 +86,22 @@ switch(ROB_GOAL_MODE)
         end
         
     case 'naive'
-        % picks the goal that's closest to the robot (by xyz position)
-        [~, r_goal_idx] = max(r_pieces_active);
-        r_goal_name = r_pieces(r_goal_idx);
+        % TODO: picks the goal that's closest to the robot (by xyz position)
+%         [~, r_goal_idx] = max(r_pieces_active);
+        % pick random available goal
+        r_goal_idxs = 1:length(r_pieces);
+        if sum(r_pieces_active) == 0
+            r_goal_name = 'red_1x2';
+        else
+            rr = r_goal_idxs(r_pieces_active);
+            rand_idx = randi(length(rr));
+            r_goal_idx = rr(rand_idx);
+%             r_goal_idx = randsample(r_goal_idxs(r_pieces_active), 1);
+%             if sum(r_pieces_active) == 1
+%                 1;
+%             end
+            r_goal_name = r_pieces(r_goal_idx);
+        end
     case 'responsive'
         % picks the closest goal that the human isn't going towards
         disp("NOT IMPLEMENTED");

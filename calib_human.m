@@ -187,5 +187,3 @@ goal_locs.green_1x4.pick.xyz_h = wrist_pos;
 goal_locs.pink_1x4.pick.xyz_h = wrist_pos;
 goal_locs.blue_1x4.pick.xyz_h = wrist_pos;
 disp("done");
-
-

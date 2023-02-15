@@ -9,10 +9,10 @@ xyz = FK(robot, deg2rad(goal_locs.red_1x2.pick.down));
 goal_locs.red_1x2.pick.xyz = xyz(1:3,4);
 goal_locs.red_1x2.pick.xyz_h = [1.00; -0.11; 1.09];
 % dropping off
-% goal_locs.red_1x2.drop.up = [10.154; 58.939; -58.411+58.939; 3.656; -35.707; -104.607];
+goal_locs.red_1x2.drop.up = [10.154; 58.939; -58.411+58.939; 3.656; -35.707; -104.607];
 % goal_locs.red_1x2.drop.down = [10.100; 60.699; -59.754+60.699; 3.787; -34.362; -104.712];
 % recalibrated
-goal_locs.red_1x2.drop.up = [9.618; 58.277; -59.121+58.277; 0.268; -32.282; -100.368];
+% goal_locs.red_1x2.drop.up = [9.618; 58.277; -59.121+58.277; 0.268; -32.282; -100.368];
 goal_locs.red_1x2.drop.down = [9.642; 60.103; -60.734+60.103; 0.278; -30.668; -100.407];
 goal_locs.red_1x2.drop.detach = [10.154; 58.939; -58.411+58.939; 3.656; -35.707; -104.607];
 xyz = FK(robot, deg2rad(goal_locs.red_1x2.drop.down));

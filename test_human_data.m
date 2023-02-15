@@ -15,8 +15,8 @@ STATE = "init_s"; STATE_last = "none";
 goal_type = "regular"; goal_type_last = "none";
 ovr = 0.1;
 
-% ROB_GOAL_MODE = 'proactive'; % 'naive', 'responsive'
-ROB_GOAL_MODE = 'naive';
+ROB_GOAL_MODE = 'proactive'; % 'naive', 'responsive'
+% ROB_GOAL_MODE = 'naive';
 
 % move home
 % home_pos = [0.445; 27.224; -44.181+27.224; 2.789; -49.112; -4.930];
@@ -29,6 +29,7 @@ curr_time = tic;
 
 human_pos_buf = zeros(3, 10);
 
+% load('goal_locs_ravi.mat');
 load('goal_locs.mat');
 % pieces = ["red_1x2" "red_2x6" "red_1x8" "orange_1x2"];
 
@@ -51,6 +52,7 @@ STATE = 'SENSE'; % 'MOVE'
 prev_h_pred = -1;
 prev_prev_h_pred = -1;
 rob_cmd_sent = false;
+h_vel_thresh = 0.03;
 
 % for robot movements in loop
 pause_time = 2.05;
@@ -64,6 +66,7 @@ r_joint_data = []; % joint positions
 times = [];
 loop_counter = 0;
 init_time = tic;
+h_picked_time = tic;
 while true
     while true
         flushdata(depthVid);
@@ -113,13 +116,24 @@ while true
     h_vel = human_pos_buf(:,end) - human_pos_buf(:,end-1);
     h_vel_long = human_pos_buf(:,end) - human_pos_buf(:,end-3);
     % rate-limit logic (make sure human moves before checking again)
-    if norm(h_vel_long) >= 0.03
+%     disp(norm(h_vel));
+    if norm(h_vel) >= h_vel_thresh
+%     if norm(h_vel_long) >= 0.0
         h_goal_picked = false;
     end
-    if norm(h_vel_long) < 0.03 && ~h_goal_picked % human is not currently moving
+%     h_curr_time = toc(h_picked_time);
+%     if h_curr_time > 1
+%         h_goal_picked = false;
+%     end
+    if norm(h_vel) < h_vel_thresh && ~h_goal_picked % human is not currently moving
         % check distances to goals
         dists = vecnorm(human_goals - human_pos_buf(:,end), 2, 1);
         dists(~h_pieces_active) = inf;
+%         disp(dists);
+%         disp("human");
+%         disp(human_pos_buf(:,end));
+%         disp("goal");
+%         disp(goal_locs.green_1x4.pick.xyz_h);
         % TODO: make this check if human has been near goal for > 0.5 secs
         if min(dists) < 0.05 % human is by this goal
 %         if true % temporary
@@ -150,10 +164,11 @@ while true
                     h_pieces_active(6) = 1; % yellow 1x6 bottom active
             end
             h_goal_picked = true;
+            h_picked_time = tic;
         end
     end
 %     disp(h_pieces_active);
-    
+%     disp(r_pieces_active);
     switch STATE
         case 'SENSE'
             [jpos, jvel, SSA_status, controller_status] = comm.getRobData;
@@ -170,7 +185,7 @@ while true
                     ROB_GOAL_MODE, h_goal_idx, true);
                 switch_state = true;
             else
-                disp("human goal: " + h_pieces(h_goal_idx));
+%                 disp("human goal: " + h_pieces(h_goal_idx));
                 r_goal_name = select_robot_goal(goal_locs, h_pieces_active, r_pieces_active,...
                     ROB_GOAL_MODE, human_pos_buf, false);
     %             disp("robot goal: " + r_goal_name);
@@ -180,15 +195,18 @@ while true
     %             disp(norm(human_vel) + " " + h_pieces(h_goal_idx));
                 % TODO: also check that the person has been moving for this
                 % time
-                is_consistent = (prev_prev_h_pred == prev_h_pred) && ...
-                    (prev_h_pred == h_goal_idx);
+%                 is_consistent = (prev_prev_h_pred == prev_h_pred) && ...
+%                     (prev_h_pred == h_goal_idx);
+                is_consistent = (prev_prev_h_pred == prev_h_pred);
                 if loop_counter == 20
                     disp('waiting for human action');
                 end
                 if ROB_GOAL_MODE == "naive"
-                   switch_state = (loop_counter > 20);
+%                    switch_state = (loop_counter > 20);
+                    switch_state = (norm(human_vel) > h_vel_thresh) && is_consistent &&...
+                    loop_counter > 20;
                 else
-                    switch_state = (norm(human_vel) > 0.03) && is_consistent &&...
+                    switch_state = (norm(human_vel) > h_vel_thresh) && is_consistent &&...
                     loop_counter > 20;
                 end
             end
@@ -270,7 +288,13 @@ while true
         break; % finished moving all pieces
     end
 end
+disp("time taken: " + (times(end) - times(1)));
 disp('finished cleanly');
+%% save trial data
+user = "ravi";
+test_idx = 7;
+filename = user + "_" + ROB_GOAL_MODE + "_test" + test_idx + ".mat";
+save(filename, 'times', 'h_xyz_wrist_data', 'r_xyz_ee_data', 'r_joint_data');
 %%
 % comm.endSTMO;
 % pause(0.5);
